@@ -4,9 +4,9 @@ server:
 spring:
   datasource:
     # MySQL?????????3306?????ai_chat_db
-    url: jdbc:mysql://localhost:3306/ai_chat_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: root    # SQLyog????
-    password: myroot  # SQLyog????
+    url: 
+    username:    # SQLyog????
+    password:   # SQLyog????
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -17,6 +17,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect # MySQL8??
 llm:
-  api_url: https://llm-bd204e5kq0y13aor.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions
-  api_key: sk-ws-H.RXPHDEE.mKaM.MEYCIQD2jKP7fFUnxUf5GEolF1tCxYFniZ7vXaSjzg4-hgoPfgIhAKDysF1inCYHwruTF1o98DcrcjRTQuz86Tm76RNYUwwJ
-  model: qwen3.7-plus
+  api_url: 
+  api_key: 
+  model: 
