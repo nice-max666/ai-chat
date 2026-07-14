@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 智能对话</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #chatBox { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
+        .msg { margin-bottom: 8px; }
+        .user { color: blue; }
+        .ai { color: green; }
+    </style>
+</head>
+<body>
+<h2>AI 智能对话</h2>
+<!-- 聊天记录展示区 -->
+<div id="chatBox"></div>
+
+<!-- 输入区 -->
+<input type="text" id="userInput" placeholder="请输入您的问题..." size="50">
+<button onclick="sendMessage()">发送</button>
+
+<script>
+    // 替换为你刚才生成的助手 ID
+    const assistantId = '24609261-79ba-4ea9-9b53-795928d2c859';
+
+    function sendMessage() {
+        const input = document.getElementById('userInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        // 在页面上显示用户的提问
+        appendMessage('你: ' + message, 'user');
+        input.value = '';
+
+        // 调用后端接口
+        fetch(`/api/chat/completions?assistantId=${assistantId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message })
+        })
+        .then(res => res.json())
+        .then(data => {
+            // 在页面上显示 AI 的回答
+            if (data.code === 200) {
+                appendMessage('AI: ' + data.data, 'ai');
+            } else {
+                appendMessage('系统错误: ' + data.message, 'ai');
+            }
+        })
+        .catch(err => appendMessage('请求失败: ' + err, 'ai'));
+    }
+
+    function appendMessage(text, type) {
+        const chatBox = document.getElementById('chatBox');
+        const div = document.createElement('div');
+        div.className = 'msg ' + type;
+        div.innerText = text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight; // 自动滚动到底部
+    }
+</script>
+</body>
+</html>
