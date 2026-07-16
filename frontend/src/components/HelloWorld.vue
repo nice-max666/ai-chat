@@ -10,22 +10,45 @@ const currentAssistant = ref(null)
 const messages = ref([])
 const userInput = ref('')
 const messageListRef = ref(null)
+const isUserScrolled = ref(false)
+const isProgrammaticScroll = ref(false)
 
 // 获取助手列表
 onMounted(async () => {
   try {
-     // TestController 未使用 Result 包装，拦截器会原样返回数组
      assistants.value = await getAssistantList()
   } catch (error) {
     console.error('获取助手列表失败', error)
   }
 })
 
-// 封装滚动到底部的方法
-const scrollToBottom = async () => {
-  await nextTick() // 等待 Vue 完成 DOM 更新
-  if (messageListRef.value) {
+
+
+const scrollToBottom = () => {
+  if (!messageListRef.value) return
+  isProgrammaticScroll.value = true
+  requestAnimationFrame(() => {
     messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+    setTimeout(() => {
+      isProgrammaticScroll.value = false
+    }, 100)
+  })
+}
+
+const checkIsNearBottom = () => {
+  if (!messageListRef.value) return false
+  const { scrollTop, scrollHeight, clientHeight } = messageListRef.value
+  return scrollHeight - scrollTop - clientHeight < 50
+}
+
+const handleScroll = () => {
+  if (isProgrammaticScroll.value) return
+  isUserScrolled.value = !checkIsNearBottom()
+}
+
+const autoScrollIfNeeded = () => {
+  if (!isUserScrolled.value) {
+    scrollToBottom()
   }
 }
 
@@ -33,9 +56,11 @@ const scrollToBottom = async () => {
 // 选中助手并加载历史
 const selectAssistant = async (assistant) => {
   currentAssistant.value = assistant
+  isUserScrolled.value = false
   try {
     const data = await getChatHistory(assistant.id)
     messages.value = Array.isArray(data) ? data : []
+    await nextTick()
     scrollToBottom()
   } catch (error) {
     messages.value = []
@@ -50,15 +75,24 @@ const handleSend = async () => {
   const msgToSend = userInput.value
   userInput.value = ''
 
+  // 用户发送消息时，若当前接近底部则允许自动滚动
+  const shouldAutoScroll = !isUserScrolled.value
+
   // 先放一个空的 AI 气泡,随流逐字填充
   messages.value.push({ role: 'assistant', message: '' })
   const aiIndex = messages.value.length - 1
-  scrollToBottom()
+  
+  if (shouldAutoScroll) {
+    await nextTick()
+    scrollToBottom()
+  }
 
   try {
     await sendChatStream(currentAssistant.value.id, { message: msgToSend }, (chunk) => {
-      messages.value[aiIndex].message += chunk // 追加片段,视图实时更新
-      scrollToBottom()
+      messages.value[aiIndex].message += chunk
+      if (shouldAutoScroll) {
+        autoScrollIfNeeded()
+      }
     })
   } catch (error) {
     console.error('发送消息失败', error)
@@ -67,19 +101,9 @@ const handleSend = async () => {
     }
   }
 }
-//新增助手
+//新增助手：直接打开完整弹窗
 const handleAddAssistant = () => {
-  ElMessageBox.prompt('请输入助手名称', '新增助手', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputPattern: /\S+/,
-    inputErrorMessage: '名称不能为空'
-  }).then(async ({ value }) => {
-    // 调用后端接口，仅传 name，id与时间由后端生成
-    const res = await createAssistant({ name: value })
-    ElMessage.success('助手创建成功')
-    assistants.value.push(res) // 将新助手追加到列表
-  }).catch(() => {})
+  openAddDialog()
 }
 
 // 新增助手弹窗:状态 + 表单
@@ -97,6 +121,10 @@ const openAddDialog = () => {
 const confirmAddAssistant = async () => {
   if (!addForm.name.trim()) {
     ElMessage.warning('助手名称不能为空')
+    return
+  }
+  if (!addForm.personality.trim()) {
+    ElMessage.warning('AI 提示词不能为空，请设置助手的人设')
     return
   }
   try {
@@ -184,7 +212,7 @@ const handleDelete = async (id) => {
         </div>
 
         <!-- 消息列表 -->
-        <div ref="messageListRef" class="message-list">
+        <div ref="messageListRef" class="message-list" @scroll="handleScroll">
           <div
             v-for="(msg, index) in messages"
             :key="index"

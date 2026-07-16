@@ -4,11 +4,10 @@ server:
 spring:
   datasource:
     # MySQL?????????3306?????ai_chat_db
-    # url: jdbc:mysql://localhost:3306/ai_chat_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
-    # username: root    # SQLyog????
-    # password: myroot  # SQLyog????
-    # driver-class-name: com.mysql.cj.jdbc.Driver
-    driver-class-name: com.mysql.cj.jdbc.Driver
+     url: jdbc:mysql://localhost:3306/ai_chat_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+     username: root    # SQLyog????
+     password: myroot  # SQLyog????
+     driver-class-name: com.mysql.cj.jdbc.Driver
     
 
   jpa:
