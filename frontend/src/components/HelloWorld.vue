@@ -1,11 +1,15 @@
 <!-- frontend/src/components/HelloWorld.vue -->
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAssistantList, getChatHistory, sendChat, sendChatStream, createAssistant, deleteAssistant } from '@/api/chat' // 引入 API 函数
+import KnowledgeManager from './KnowledgeManager.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 
 const assistants = ref([])
+const router = useRouter()
+const username = ref(localStorage.getItem('username') || '用户')
 const currentAssistant = ref(null)
 const messages = ref([])
 const userInput = ref('')
@@ -160,6 +164,13 @@ const handleDelete = async (id) => {
     }
   } catch (error) {}
 }
+
+// 退出登录
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('username')
+  router.push('/login')
+}
 </script>
 
 
@@ -192,13 +203,33 @@ const handleDelete = async (id) => {
           <el-icon class="delete-icon" @click.stop="handleDelete(item.id)"><Delete /></el-icon>
         </div>
       </div>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar-small">{{ username.charAt(0) }}</div>
+          <span class="user-name-small">{{ username }}</span>
+        </div>
+        <el-button class="logout-btn" @click="handleLogout">退出登录</el-button>
+      </div>
     </aside>
 
     <!-- 右侧聊天窗口 -->
     <main class="chat-area">
       <div v-if="!currentAssistant" class="empty-state">
-        <div class="empty-emoji">💬</div>
-        <div>请选择一个助手开始聊天</div>
+        <div class="hero-icon">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="48" stroke="url(#h1)" stroke-width="1.5" stroke-dasharray="8 4" opacity=".4"/>
+            <circle cx="50" cy="50" r="36" stroke="url(#h2)" stroke-width="1" opacity=".6"/>
+            <circle cx="50" cy="50" r="24" stroke="url(#h3)" stroke-width="1" stroke-dasharray="4 6" opacity=".3"/>
+            <circle cx="50" cy="50" r="12" fill="url(#h4)" opacity=".9"/>
+            <defs>
+              <linearGradient id="h1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
+              <linearGradient id="h2" x1="100" y1="0" x2="0" y2="100"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#6366f1"/></linearGradient>
+              <linearGradient id="h3" x1="0" y1="100" x2="100" y2="0"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#c084fc"/></linearGradient>
+              <radialGradient id="h4"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#a855f7"/></radialGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="hero-text">你好，选择一个助手开始对话吧</div>
       </div>
 
       <template v-else>
@@ -223,7 +254,7 @@ const handleDelete = async (id) => {
               {{ currentAssistant.name ? currentAssistant.name.charAt(0) : 'A' }}
             </div>
             <div class="chat-bubble" :class="msg.role === 'user' ? 'bubble-user' : 'bubble-ai'">
-              {{ msg.message }}<span v-if="msg.role === 'assistant' && msg.message === ''" class="typing-cursor"></span>
+              {{ msg.message }}<span v-if="msg.role === 'assistant' && !msg.message" class="typing-cursor"></span>
             </div>
             <div v-if="msg.role === 'user'" class="msg-avatar user-avatar">我</div>
           </div>
@@ -263,16 +294,23 @@ const handleDelete = async (id) => {
       </template>
     </el-dialog>
 
-    <!-- 助手详情弹窗:展示名称 + AI 提示词 -->
-    <el-dialog v-model="detailDialogVisible" title="助手详情" width="500px">
-      <el-form label-width="90px">
-        <el-form-item label="助手名称">
-          <span>{{ detailAssistant.name }}</span>
-        </el-form-item>
-        <el-form-item label="AI 提示词">
-          <span style="white-space: pre-wrap;">{{ detailAssistant.personality || '(未设置)' }}</span>
-        </el-form-item>
-      </el-form>
+    <!-- 助手详情弹窗:展示名称 + AI 提示词 + 知识库 -->
+    <el-dialog v-model="detailDialogVisible" :title="detailAssistant.name" width="520px">
+      <el-tabs model-value="info">
+        <el-tab-pane label="基本信息" name="info">
+          <el-form label-width="90px">
+            <el-form-item label="助手名称">
+              <span>{{ detailAssistant.name }}</span>
+            </el-form-item>
+            <el-form-item label="AI 提示词">
+              <span style="white-space: pre-wrap;">{{ detailAssistant.personality || '(未设置)' }}</span>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+        <el-tab-pane label="知识库" name="knowledge">
+          <KnowledgeManager :assistantId="detailAssistant.id" />
+        </el-tab-pane>
+      </el-tabs>
       <template #footer>
         <el-button type="primary" @click="detailDialogVisible = false">关闭</el-button>
       </template>
@@ -289,97 +327,154 @@ const handleDelete = async (id) => {
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  width: 260px;
+  width: 270px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+  background: linear-gradient(180deg, #110e2b 0%, #1e1b4b 50%, #252160 100%);
   display: flex;
   flex-direction: column;
 }
 .sidebar-brand {
   display: flex; align-items: center; gap: 12px;
-  padding: 22px 20px;
+  padding: 24px 20px 18px;
 }
 .brand-logo {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 40px; height: 40px; border-radius: 12px;
   background: linear-gradient(135deg, #6366f1, #a855f7);
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 700; font-size: 15px;
-  box-shadow: 0 4px 12px rgba(99,102,241,.45);
+  color: #fff; font-weight: 700; font-size: 17px;
+  box-shadow: 0 4px 16px rgba(99,102,241,.5);
 }
-.brand-text { color: #fff; font-size: 18px; font-weight: 600; }
+.brand-text { color: #fff; font-size: 19px; font-weight: 700; letter-spacing: .5px; }
 
-.sidebar-add { padding: 4px 16px 12px; }
+.sidebar-add { padding: 0 16px 14px; }
 .add-btn {
-  width: 100%; height: 40px; border: none; color: #fff; font-weight: 500;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  border-radius: 10px; transition: transform .2s, opacity .2s;
+  width: 100%; height: 42px; border: 1.5px solid rgba(255,255,255,.15);
+  color: #cbd5e1; font-weight: 500; font-size: 14px;
+  background: rgba(255,255,255,.04); border-radius: 12px;
+  transition: all .2s;
 }
-.add-btn:hover { transform: translateY(-1px); opacity: .92; color: #fff; }
+.add-btn:hover { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
 
-.assistant-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+.assistant-list { flex: 1; overflow-y: auto; padding: 4px 12px 8px; }
+.assistant-list::-webkit-scrollbar { width: 4px; }
+.assistant-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
 .assistant-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; margin-bottom: 4px;
-  border-radius: 10px; cursor: pointer;
-  color: #cbd5e1; transition: background .2s;
+  padding: 10px 14px; margin-bottom: 2px;
+  border-radius: 12px; cursor: pointer;
+  color: #cbd5e1; transition: all .2s;
 }
-.assistant-item:hover { background: rgba(255,255,255,.08); }
-.assistant-item.active { background: rgba(255,255,255,.15); color: #fff; }
+.assistant-item:hover { background: rgba(255,255,255,.06); color: #e2e8f0; }
+.assistant-item.active { background: rgba(99,102,241,.25); color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,.2); }
 .assistant-avatar {
-  width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
   background: linear-gradient(135deg, #f472b6, #a855f7);
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 600; font-size: 14px; transition: transform .2s;
 }
-.assistant-avatar:hover { transform: scale(1.12); }
+.assistant-item:hover .assistant-avatar { transform: scale(1.08); }
 .assistant-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.delete-icon { display: none; cursor: pointer; color: #f87171; }
+.delete-icon { display: none; cursor: pointer; color: #f87171; opacity: .8; transition: opacity .15s; }
+.delete-icon:hover { opacity: 1; }
 .assistant-item:hover .delete-icon { display: inline-flex; }
 
+/* 侧边栏底部 */
+.sidebar-footer {
+  padding: 10px 16px 16px; border-top: 1px solid rgba(255,255,255,.08);
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.user-avatar-small {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 13px;
+}
+.user-name-small { color: #cbd5e1; font-size: 13px; font-weight: 500; }
+.logout-btn {
+  width: 100%; border: none; color: #94a3b8; font-weight: 500;
+  background: rgba(255,255,255,.05); border-radius: 10px; transition: all .2s;
+  height: 36px; font-size: 13px;
+}
+.logout-btn:hover { color: #fca5a5; background: rgba(248,113,113,.12); }
+
 /* ===== 聊天区 ===== */
-.chat-area { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #f7f8fc; }
+.chat-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* 空白状态 */
 .empty-state {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 14px; color: #9ca3af; font-size: 15px;
+  align-items: center; justify-content: center; gap: 28px;
+  background: #fafbfd;
 }
-.empty-emoji { font-size: 52px; }
 
+/* 图标 */
+.hero-icon { position: relative; }
+.hero-icon svg {
+  width: 120px; height: 120px;
+  animation: heroFloat 4s ease-in-out infinite;
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+/* 文字 */
+.hero-text {
+  font-size: 15px; color: #9ca3af; letter-spacing: 1px;
+}
+
+/* 顶栏 */
 .chat-header {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 24px; background: #fff;
-  border-bottom: 1px solid #eef0f5; box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  border-bottom: 1px solid #eef0f5;
+  box-shadow: 0 1px 4px rgba(0,0,0,.03);
 }
 .header-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 42px; height: 42px; border-radius: 50%;
   background: linear-gradient(135deg, #f472b6, #a855f7);
-  display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 16px;
 }
 .header-name { font-size: 16px; font-weight: 600; color: #1f2937; }
 .header-sub { font-size: 12px; color: #9ca3af; }
 
-.message-list { flex: 1; overflow-y: auto; padding: 24px; }
-.msg-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
+/* 消息列表 */
+.message-list {
+  flex: 1; overflow-y: auto; padding: 24px;
+  background-color: #f8f9fd;
+  background-image: radial-gradient(circle, #e0e2f0 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.message-list::-webkit-scrollbar { width: 6px; }
+.message-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+.message-list::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+.msg-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; animation: msgIn .35s ease-out; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .row-user { flex-direction: row-reverse; }
 .msg-avatar {
-  width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 600; font-size: 13px;
+  color: #fff; font-weight: 600; font-size: 14px;
 }
 .ai-avatar { background: linear-gradient(135deg, #f472b6, #a855f7); }
 .user-avatar { background: linear-gradient(135deg, #38bdf8, #3b82f6); }
 
 .chat-bubble {
-  max-width: 68%; padding: 12px 16px; border-radius: 14px;
-  word-wrap: break-word; white-space: pre-wrap; line-height: 1.6; font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  max-width: 68%; padding: 12px 18px; border-radius: 16px;
+  word-wrap: break-word; white-space: pre-wrap; line-height: 1.65; font-size: 14px;
 }
 .bubble-user {
-  background: linear-gradient(135deg, #6366f1, #3b82f6); color: #fff;
-  border-bottom-right-radius: 4px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 2px 12px rgba(99,102,241,.25);
 }
 .bubble-ai {
   background: #fff; color: #374151; border: 1px solid #eef0f5;
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
 }
 .typing-cursor {
   display: inline-block; width: 7px; height: 15px; margin-left: 2px;
@@ -388,17 +483,23 @@ const handleDelete = async (id) => {
 }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
 
+/* 输入区 */
 .chat-input {
   display: flex; gap: 12px; padding: 16px 24px;
   background: #fff; border-top: 1px solid #eef0f5;
 }
-.input-box :deep(.el-input__wrapper) { border-radius: 10px; }
-.send-btn {
-  border: none; color: #fff; font-weight: 500; padding: 0 26px;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  border-radius: 10px; transition: opacity .2s;
+.input-box :deep(.el-input__wrapper) {
+  border-radius: 12px; box-shadow: none; border: 1.5px solid #e5e7eb;
+  transition: border-color .2s;
 }
-.send-btn:hover { opacity: .92; color: #fff; }
+.input-box :deep(.el-input__wrapper:hover) { border-color: #c7d2fe; }
+.input-box :deep(.el-input__wrapper.is-focus) { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.08); }
+.send-btn {
+  border: none; color: #fff; font-weight: 600; padding: 0 28px; font-size: 14px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-radius: 12px; transition: all .2s;
+}
+.send-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,.4); color: #fff; }
 </style>
 
 <!-- 全局覆盖:清掉 Vite 模板对 #app 的宽度/居中限制,让聊天铺满全屏 -->

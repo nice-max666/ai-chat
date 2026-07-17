@@ -2,6 +2,7 @@ package com.example.ai_chat.service;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
+import com.example.ai_chat.common.ChunkResult;
 import com.example.ai_chat.entity.Assistant;
 import com.example.ai_chat.entity.ChatMessage;
 import com.example.ai_chat.repository.AssistantRepository;
@@ -21,6 +22,9 @@ public class ChatService {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private KnowledgeService knowledgeService;
 
     @Autowired
     private LlmService llmService;
@@ -55,8 +59,9 @@ public class ChatService {
             historyMessages.add(historyMsg);
         }
 
-        // 4. 调用大模型，获取 AI 的回复
-        String aiReply = llmService.chat(assistant.getPersonality(), historyMessages, userMsg);
+        // 4. 调用大模型，获取 AI 的回复（知识库增强）
+        String systemPrompt = buildSystemPrompt(assistant, userMsg);
+        String aiReply = llmService.chat(systemPrompt, historyMessages, userMsg);
 
         // 5. 把【AI的回复】存入数据库
         ChatMessage assistantMessage = new ChatMessage();
@@ -102,8 +107,9 @@ public class ChatService {
             historyMessages.add(historyMsg);
         }
 
-        // 4. 流式调用大模型,片段实时回调给上层;返回值是拼好的全文
-        String aiReply = llmService.chatStream(assistant.getPersonality(), historyMessages, userMsg, onChunk);
+        // 4. 流式调用大模型,片段实时回调给上层;返回值是拼好的全文（知识库增强）
+        String systemPrompt = buildSystemPrompt(assistant, userMsg);
+        String aiReply = llmService.chatStream(systemPrompt, historyMessages, userMsg, onChunk);
 
         // 5. 全部生成完后,把完整回复落库
         ChatMessage assistantMessage = new ChatMessage();
@@ -113,5 +119,15 @@ public class ChatService {
         assistantMessage.setMessage(aiReply);
         assistantMessage.setCreatedAt(LocalDateTime.now());
         chatMessageRepository.save(assistantMessage);
+    }
+
+    /** 构建含知识库上下文的系统提示词 */
+    private String buildSystemPrompt(Assistant assistant, String userMsg) {
+        String prompt = assistant.getPersonality();
+        java.util.List<ChunkResult> results = knowledgeService.search(assistant.getId(), userMsg);
+        if (results != null && !results.isEmpty()) {
+            prompt = knowledgeService.buildContext(results) + "\n---\n" + prompt;
+        }
+        return prompt;
     }
 }

@@ -17,6 +17,16 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect # MySQL8??
+
+jwt:
+  secret: AiChat@2025SecretKeyForJWT!Need32+Chars
+  expiration: 604800000  # 7天，单位毫秒
+
+knowledge:
+  chunk-size: 500
+  chunk-overlap: 50
+  top-k: 3
+
 llm:
   # 旧:工作空间专属地址(配旧 key 用)
   # api_url: https://llm-bd204e5kq0y13aor.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions

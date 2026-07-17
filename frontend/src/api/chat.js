@@ -32,7 +32,10 @@ export async function sendChatStream(assistantId, data, onChunk) {
     `http://localhost:8080/api/chat/completions/stream?assistantId=${assistantId}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+      },
       body: JSON.stringify(data)
     }
   )
